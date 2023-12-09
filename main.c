@@ -5,22 +5,22 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_errno.h>
 
-// Definiere die Funktion für die Riemann p-Energie
+// Define the integrand of the p-energy
 double p_energy(double u, double u_prime, double p) {
     return 0.5 * pow(fabs(u_prime), p);
 }
 
-// Definiere die Ableitung der Riemann p-Energie
+// Define the first variation of the p-energie
 double p_energy_derivative(double u, double u_prime, double p) {
     return p * pow(fabs(u_prime), p - 2) * ((u_prime > 0) ? 1 : -1);
 }
 
-// Definiere die Funktion, die der Euler-Lagrange-Gleichung entspricht
+// To be solved E-L equation
 double lagrange_equation(double u, double u_prime, double p) {
     return gsl_deriv_central(p_energy, u, 1e-8, p, u_prime);
 }
 
-// Hilfsfunktion für die GSL-Minimierung
+// Helper function for GSL Minimization
 double lagrange_equation_root(double u, void *params) {
     double p = *(double *)params;
     return lagrange_equation(u, gsl_deriv_central(lagrange_equation, u, 1e-8, p), p);
@@ -37,14 +37,14 @@ int main() {
     double initial_guess = 1.0;
     gsl_min_fminimizer_set(minimizer, &F, initial_guess, 0.0, 1.0e-8);
 
-    // Öffne eine Datei zum Speichern der Datenpunkte
+    // Open a file to save data points
     FILE *dataFile = fopen("data_points.dat", "w");
     if (dataFile == NULL) {
         fprintf(stderr, "Error creating data file.\n");
         exit(EXIT_FAILURE);
     }
 
-    // Berechne und speichere Datenpunkte für die Funktion und die Riemann p-Energie
+    // Calculate and save the data points
     for (int i = 0; i < NUM_POINTS; ++i) {
         double u = -1.0 + i * 2.0 / (NUM_POINTS - 1);
         double u_prime = gsl_deriv_central(p_energy, u, 1e-8, p);
@@ -53,14 +53,14 @@ int main() {
 
     fclose(dataFile);
 
-    // Öffne eine Datei zum Speichern der berechneten Minima
+    // File for min
     FILE *minimaFile = fopen("minima.dat", "w");
     if (minimaFile == NULL) {
         fprintf(stderr, "Error creating minima file.\n");
         exit(EXIT_FAILURE);
     }
 
-    // Durchführe die Minimierung
+    // Minimization
     int status;
     int iter = 0;
     do {
@@ -71,17 +71,15 @@ int main() {
         double upper_bound = gsl_min_fminimizer_x_upper(minimizer);
         status = gsl_min_test_interval(lower_bound, upper_bound, 0.0, 1.0e-8);
 
-        // Speichere die gefundenen Minima
+        // Save the min
         fprintf(minimaFile, "%lf %lf\n", minimum, p_energy(minimum, gsl_deriv_central(lagrange_equation, minimum, 1e-8, p), p));
 
     } while (status == GSL_CONTINUE && iter < 1000);
 
     fclose(minimaFile);
-
-    // Freigabe des Speichers
     gsl_min_fminimizer_free(minimizer);
 
-    // Erstelle GNUplot-Skript
+    // GNUplot-script
     FILE *scriptFile = fopen("plotScript.gnu", "w");
     if (scriptFile == NULL) {
         fprintf(stderr, "Error creating plot script file.\n");
@@ -90,16 +88,16 @@ int main() {
 
     fprintf(scriptFile, "set terminal png\n");
     fprintf(scriptFile, "set output 'riemann_p_energy_plot.png'\n");
-    fprintf(scriptFile, "plot 'data_points.dat' using 1:2 with lines title 'Riemann p-Energy', \
+    fprintf(scriptFile, "plot 'data_points.dat' using 1:2 with lines title 'p-Energy', \
                         'data_points.dat' using 1:3 with lines title 'Derivative', \
                         'minima.dat' with points pointtype 7 title 'Minima'\n");
 
     fclose(scriptFile);
 
-    // Ausführung von GNUplot
+    // Execution of GNUplot
     system("gnuplot plotScript.gnu");
 
-    // Entfernen temporärer Dateien
+    // Remove temporary data
     remove("data_points.dat");
     remove("minima.dat");
     remove("plotScript.gnu");
